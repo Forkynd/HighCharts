@@ -1,0 +1,101 @@
+import Highcharts from "highcharts";
+import HighchartsReact from "highcharts-react-official";
+import { useMemo } from "react";
+import { Box } from "@mui/material";
+
+import type { FormAbertura } from "./Abertura";
+import { prioridadeConfig } from "./ConstSolicitacoes";
+import { red } from "@mui/material/colors";
+
+interface PrioridadeChartProps {
+  dados?: FormAbertura[]; // pode vir vazio/undefined
+}
+
+export default function GraficoPrioridade({ dados }: PrioridadeChartProps) {
+  // Garante que sempre trabalhamos com array (evita undefined)
+  const lista = dados ?? [];
+
+  // Transforma a lista em dados agregados para o gráfico
+  const dadosGrafico = useMemo(() => {
+    const contador: Record<number, number> = {};
+
+    for (const item of lista) {
+      const prioridade = item.prioridade_area;
+      if (prioridade != null) {
+        contador[prioridade] = (contador[prioridade] ?? 0) + 1;
+      }
+    }
+
+    return Object.entries(contador).map(([prioridade, quantidade]) => {
+      const { label, backgroundColor } = prioridadeConfig(Number(prioridade));
+
+      return {
+        name: label,
+        y: quantidade,
+        color: backgroundColor,
+      };
+    });
+  }, [lista]);
+
+  // 3) Monta as opções do Highcharts com memo também
+  const options: Highcharts.Options = useMemo(
+    () => ({
+      chart: {
+        type: "bar",
+        zooming: {
+          type: "y",
+        },
+      },
+      title: { text: "Prioridade Solicitações", style: { color: "#3c0d6e" } },
+      xAxis: {
+        categories: ["Baixa", "Média", "Alta", "Critíca"],
+        lineWidth: 2,
+        lineColor: "#3c0d6e",
+      },
+      yAxis: {
+        title: {
+          text: "",
+        },
+        lineWidth: 2,
+        lineColor: "#3c0d6e",
+        gridLineColor: "rgba(181, 147, 237, 0.53)",
+      },
+      tooltip: {
+        pointFormat: "<b>{point.y}</b> solicitações ({point.percentage:.1f}%)",
+      },
+      credits: {
+        enabled: false,
+      },
+      legend: {
+        enabled: false,
+      },
+      series: [
+        {
+          data: dadosGrafico,
+        },
+      ],
+      plotOptions: {
+        column: {
+          borderRadius: 6,
+          shadow: false,
+          borderWidth: 1,
+          borderColor: "rgba(0,0,0,0.08)",
+
+          dataLabels: {
+            enabled: true,
+            style: {
+              fontWeight: "bold",
+            },
+          },
+        },
+      },
+    }),
+    [dadosGrafico],
+  );
+
+  return (
+    <Box sx={{ mt: 4 }}>
+      <HighchartsReact highcharts={Highcharts} options={options} />
+    </Box>
+  );
+}
