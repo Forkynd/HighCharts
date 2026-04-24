@@ -1,0 +1,91 @@
+import { useMemo } from "react";
+import Highcharts from "highcharts";
+import HighchartsReact from "highcharts-react-official";
+import { Card, CardContent, Typography } from "@mui/material";
+import type { FormAbertura } from "./Abertura";
+import { borderColor } from "@mui/system";
+
+type SerieMensal = { chave: string; rotulo: string; total: number };
+
+function normalizarParaAnoMes(valor: string) {
+  if (!valor) return null;
+  const apenasData = valor.trim().split(" ")[0];
+
+  if (apenasData.includes("/")) {
+    const [dd, mm, yyyy] = apenasData.split("/");
+    if (!dd || !mm || !yyyy) return null;
+    return { yyyy, mm: mm.padStart(2, "0") };
+  }
+
+  if (apenasData.includes("-")) {
+    const [yyyy, mm] = apenasData.split("-");
+    if (!yyyy || !mm) return null;
+    return { yyyy, mm: mm.padStart(2, "0") };
+  }
+
+  return null;
+}
+
+function agruparPrevisaoPorMes(dados: FormAbertura[] = []): SerieMensal[] {
+  const mapa = new Map<string, number>();
+
+  for (const r of dados) {
+    const partes = normalizarParaAnoMes(r.previsao_entrega);
+    if (!partes) continue;
+
+    const chave = `${partes.yyyy}-${partes.mm}`;
+    mapa.set(chave, (mapa.get(chave) ?? 0) + 1);
+  }
+
+  return Array.from(mapa.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([chave, total]) => {
+      const [yyyy, mm] = chave.split("-");
+      return { chave, rotulo: `${mm}/${yyyy}`, total };
+    });
+}
+
+type Props = {
+  dados?: FormAbertura[] | undefined;
+};
+
+export default function PrevisaoEntregaCharts({ dados }: Props) {
+  const mensal = useMemo(() => agruparPrevisaoPorMes(dados), [dados]);
+
+  const options: Highcharts.Options = useMemo(
+    () => ({
+      chart: { type: "column" },
+      title: { text: "Previsão Entrega  " },
+      xAxis: {
+        categories: mensal.map((m) => m.rotulo),
+        title: { text: "Mês" },
+      },
+      yAxis: {
+        title: { text: "Quantidade" },
+        allowDecimals: false,
+      },
+      series: [
+        {
+          type: "column",
+          name: null,
+          data: mensal.map((m) => m.total),
+          color: "purple",
+        },
+      ],
+      credits: {
+        enabled: false,
+      },
+      tooltip: {
+        headerFormat: "<b>{point.key}</b><br/>",
+        pointFormat: "{point.y} previsões",
+      },
+    }),
+    [mensal],
+  );
+
+  return (
+    <>
+      <HighchartsReact highcharts={Highcharts} options={options} />
+    </>
+  );
+}
